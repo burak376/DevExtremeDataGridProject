@@ -1,0 +1,66 @@
+﻿@using DevExtremeAspNetCoreApp1.Models.Ef
+
+@model IEnumerable<DataList>
+
+<div id="selectbox-demo">
+    <div class="widget-container">
+        <div class="dx-fieldset">
+        <div class="dx-fieldset-header">Filtre</div>
+        <div class="dx-field">
+            <div class="dx-field-label">MalKodu</div>
+            <div class="dx-field-value">
+                    @(Html.DevExtreme().SelectBox()
+                        .ID("search-box")
+                        .DataSource(d => d
+                        .Mvc()
+                        .LoadAction("GetAllSTK")
+                        .LoadMode(DataSourceLoadMode.Raw)
+                        .Key("Id")
+                        )
+                        .DisplayExpr("MalKodu")
+                        .ValueExpr("Id")
+                        .SearchEnabled(true)
+                        .OnSelectionChanged("selection_changed")
+                        .ElementAttr("MalKodu")
+                        )
+
+            </div>
+            <div class="dx-field-label">Tarih</div>
+            <div class="dx-field-value">
+                    @(Html.DevExtreme().DateBox()
+                        .ID("DateValue")
+                        .Type(DateBoxType.Date)
+                        .Value(DateTime.Now)
+                        )
+            </div>
+        </div>
+    </div>
+</div>
+    <a asp-action="GetAll" id="getValueButton" asp-route-malKodu="" >
+        Sorgula
+    </a>
+@(Html.DevExtreme().DataGrid<DataList>()
+        .DataSource(Model, new[] { "SiraNo" })
+        .Selection(s => s.Mode(SelectionMode.Single))
+        .HoverStateEnabled(true)
+        .ShowBorders(true)
+        .Columns(columns =>
+        {
+            columns.AddFor(m => m.SiraNo);
+            columns.AddFor(m => m.IslemTurString).Caption("IslemTur");
+            columns.AddFor(m => m.EvrakNo);
+            columns.AddFor(m => m.Tarihh);
+            columns.AddFor(m => m.GirisMiktar);
+            columns.AddFor(m => m.CikisMiktar);
+            columns.AddFor(m => m.Stok);
+
+        })
+        )
+
+
+<script>
+    function selection_changed(selectedItems) {
+        debugger;
+        $("getValueButton").attr("asp-route-malKodu", selectedItems.selectedItem.Id)
+    }
+</script>
