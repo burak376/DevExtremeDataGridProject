@@ -1,0 +1,111 @@
+-- ================================================
+-- Template generated from Template Explorer using:
+-- Create Procedure (New Menu).SQL
+--
+-- Use the Specify Values for Template Parameters 
+-- command (Ctrl-Shift-M) to fill in the parameter 
+-- values below.
+--
+-- This block of comments will not be included in
+-- the definition of the procedure.
+-- ================================================
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+Alter PROCEDURE GetStokValues
+	-- Add the parameters for the stored procedure here
+      @Malkodu as varchar(30) = NULL,
+	  @BaslangicTarihi as int = 0 ,
+	  @BitisTarihi as int = 0 
+AS
+BEGIN
+--sp den dönen liste için temptable oluşturulur
+	DECLARE @TotalProduct AS TABLE 
+	(
+	   ID int NOT NULL,
+	   SiraNo INT NOT NULL,
+	   IslemTurString varchar(30) NOT NULL,
+	   IslemTurInteger INT NOT NULL,
+	   EvrakNo varchar(16) NOT NULL,
+	   Tarihh datetime NOT NULL ,
+	   GirisMiktar INT NOT NULL,
+	   CikisMiktar INT NOT NULL,
+	   Stok INT NOT NULL
+	)
+
+	IF OBJECT_ID('tempdb..#tmp') IS NOT NULL
+		DROP TABLE #tmp
+
+	select 
+	  STI.ID, 
+	  CONVERT( datetime, CAST (Tarih as int)) as Tarihh, 
+	  case when STI.IslemTur = 0 then 'Giriş' else 'Çıkış' end 'IslemTurString', 
+	  STI.EvrakNo, 
+	  STI.IslemTur, 
+	  case when STI.IslemTur = 0 then STI.Miktar else 0 end 'GirisMiktar', 
+	  case when STI.IslemTur = 1 then STI.Miktar else 0 end 'CikisMiktar'
+			into #tmp 
+		from 
+		  Test.dbo.STI as STI 
+		  JOIN Test.dbo.STK AS STK on STI.MalKodu = STK.MalKodu
+		  where (STI.ID = @Malkodu or  @Malkodu IS NULL)
+		  and( (Tarih >= @BaslangicTarihi and Tarih <= @BitisTarihi ) or (  @BaslangicTarihi = 0  or  @BitisTarihi = 0))
+	   
+----------------
+
+	DECLARE @ID int, @IslemTur int, @GirisMiktar int, @CikisMiktar int -- Cursor oluşturulur
+	DECLARE ProductCursor CURSOR FOR -- Cursor'un temsil edeceği liste,array.. belirlenir (c# foreach gibi)
+	SELECT ID,  IslemTur, GirisMiktar, CikisMiktar FROM   #tmp
+	  -- Cursor açılarak kaynak tüketimi başlatılıyor.
+	  OPEN ProductCursor declare @stok int = 0 declare @SiraNo int = 0 -- Sıraydaki ve veri yakalanır ve hafızaya alınır,kolon değerleri ilgili değişkenlere sıralı bir şekilde atanıyor. 
+	  --@ID,@IslemTur,@GirisMiktar,@CikisMiktar
+	  --Diğer kolonlarda gösterilmek istenen data da dönülebilir ör: EvrakNo,Tarih vs burada 50 kolon gösteriyor olsaydık tüm alanları dönmemiz gerekecekti
+	  --#tmp table'a filtrelereyek attığımız veriyi cursor ile döndüğümüz data üzerinden eşleşleşenleri çektiğimizde istenilen alanları göstermemiz kod okunabilirliği açısından daha düzenli olacaktır.
+	  FETCH NEXT 
+	FROM 
+	  ProductCursor INTO 
+	  @ID, 
+	  @IslemTur, 
+	  @GirisMiktar, 
+	  @CikisMiktar -- İşlem başarılı ise @@FETCH_STATUS değişken değeri '0' ise işlem başarılıdır ve bir sonraki kayıt var demektir.
+	  WHILE @@FETCH_STATUS = 0 
+	  BEGIN 
+		set 
+		  @SiraNo = @SiraNo + 1 
+		set 
+		  @stok = case when @IslemTur = 0 then @stok + @GirisMiktar else @stok - @CikisMiktar end --select @stok,@IslemTur,@GirisMiktar,@CikisMiktar
+		insert into @TotalProduct -- tarih ve malkoduna göre filtrelenmiş temptable #tmp üzerinden gösterilmek istenilen alanlar temptabloya(TotalProduct) insert edilir.
+		select 
+		t.ID,
+		  @SiraNo ,
+		  t.IslemTurString,
+		  t.IslemTur,
+		  t.EvrakNo,
+		  t.Tarihh,
+		  t.GirisMiktar,
+		  t.CikisMiktar,
+		   @stok
+		from 
+		  #tmp as t where t.ID = @ID
+
+	  -- Sıradaki veriye geçilir ve tekrardan cursor üzerinden kolon değerleri ilgili değişkenlere atanır.
+	  FETCH NEXT 
+	FROM 
+	  ProductCursor INTO @ID, 
+	  @IslemTur, 
+	  @GirisMiktar, 
+	  @CikisMiktar END -- Cursor kapatılr
+	  CLOSE ProductCursor -- Hafıza boşaltılır.
+	  DEALLOCATE ProductCursor 
+
+	select  * from  @TotalProduct
+
+
+END
+GO
